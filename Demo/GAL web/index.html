@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galgame Web Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            transition: opacity 0.8s ease;
+            z-index: 1;
+        }
+
+        .character {
+            position: absolute;
+            bottom: 0;
+            height: 85%;
+            z-index: 10;
+            transition: all 0.5s ease;
+            filter: drop-shadow(0 0 20px rgba(0,0,0,0.5));
+        }
+
+        .character.left {
+            left: 5%;
+        }
+
+        .character.center {
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .character.right {
+            right: 5%;
+        }
+
+        .character.speaking {
+            filter: drop-shadow(0 0 30px rgba(255,255,255,0.3)) brightness(1.1);
+        }
+
+        .character.dim {
+            filter: brightness(0.5) grayscale(30%);
+        }
+
+        .character.enter-left {
+            animation: enterFromLeft 0.6s ease forwards;
+        }
+
+        .character.enter-right {
+            animation: enterFromRight 0.6s ease forwards;
+        }
+
+        .character.exit-left {
+            animation: exitToLeft 0.5s ease forwards;
+        }
+
+        .character.exit-right {
+            animation: exitToRight 0.5s ease forwards;
+        }
+
+        @keyframes enterFromLeft {
+            from { transform: translateX(-100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes enterFromRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes exitToLeft {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(-100%); opacity: 0; }
+        }
+
+        @keyframes exitToRight {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+
+        #dialogue-box {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 1200px;
+            background: linear-gradient(180deg, rgba(20,20,40,0.95) 0%, rgba(10,10,30,0.98) 100%);
+            border: 2px solid rgba(100,150,255,0.5);
+            border-radius: 15px;
+            padding: 20px 30px;
+            z-index: 100;
+            box-shadow: 0 0 30px rgba(100,150,255,0.3), inset 0 0 60px rgba(100,150,255,0.1);
+            min-height: 180px;
+        }
+
+        #character-name {
+            position: absolute;
+            top: -15px;
+            left: 30px;
+            background: linear-gradient(90deg, #4a6fa5, #6b8cce);
+            padding: 8px 25px;
+            border-radius: 20px;
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(74,111,165,0.5);
+        }
+
+        #dialogue-text {
+            color: #e8e8f0;
+            font-size: 20px;
+            line-height: 1.8;
+            margin-top: 15px;
+            min-height: 80px;
+        }
+
+        #dialogue-text .typing-cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1.2em;
+            background: #fff;
+            margin-left: 2px;
+            animation: blink 0.8s infinite;
+            vertical-align: text-bottom;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        #click-indicator {
+            position: absolute;
+            bottom: 15px;
+            right: 30px;
+            color: rgba(255,255,255,0.7);
+            font-size: 14px;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; transform: translateY(0); }
+            50% { opacity: 1; transform: translateY(-5px); }
+        }
+
+        #choices-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 150;
+        }
+
+        .choice-btn {
+            background: linear-gradient(180deg, rgba(40,60,100,0.95) 0%, rgba(20,40,80,0.98) 100%);
+            border: 2px solid rgba(100,180,255,0.6);
+            border-radius: 10px;
+            padding: 18px 50px;
+            color: #fff;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 400px;
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.4);
+        }
+
+        .choice-btn:hover {
+            background: linear-gradient(180deg, rgba(60,100,160,0.95) 0%, rgba(40,80,140,0.98) 100%);
+            border-color: rgba(150,200,255,0.8);
+            transform: scale(1.05);
+            box-shadow: 0 8px 30px rgba(100,180,255,0.4);
+        }
+
+        #menu-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+        }
+
+        #menu-overlay.hidden {
+            display: none;
+        }
+
+        #game-title {
+            font-size: 60px;
+            color: #fff;
+            text-shadow: 0 0 30px rgba(100,150,255,0.8);
+            margin-bottom: 60px;
+            letter-spacing: 10px;
+        }
+
+        .menu-btn {
+            background: linear-gradient(180deg, rgba(50,70,120,0.9) 0%, rgba(30,50,100,0.95) 100%);
+            border: 2px solid rgba(100,150,255,0.5);
+            border-radius: 8px;
+            padding: 15px 60px;
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s ease;
+            min-width: 250px;
+        }
+
+        .menu-btn:hover {
+            background: linear-gradient(180deg, rgba(70,100,160,0.9) 0%, rgba(50,80,140,0.95) 100%);
+            transform: scale(1.05);
+        }
+
+        #ui-buttons {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+
+        .ui-btn {
+            background: rgba(30,30,50,0.8);
+            border: 1px solid rgba(100,150,255,0.4);
+            border-radius: 8px;
+            padding: 10px 20px;
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .ui-btn:hover {
+            background: rgba(50,70,120,0.9);
+            border-color: rgba(100,150,255,0.8);
+        }
+
+        #save-load-panel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(20,20,40,0.98);
+            border: 2px solid rgba(100,150,255,0.5);
+            border-radius: 15px;
+            padding: 30px;
+            z-index: 250;
+            min-width: 500px;
+        }
+
+        #save-load-panel.hidden {
+            display: none;
+        }
+
+        .panel-title {
+            color: #fff;
+            font-size: 24px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .save-slot {
+            background: rgba(40,50,80,0.8);
+            border: 1px solid rgba(100,150,255,0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .save-slot:hover {
+            background: rgba(60,80,120,0.8);
+            border-color: rgba(100,150,255,0.6);
+        }
+
+        .save-slot-title {
+            color: #fff;
+            font-size: 16px;
+        }
+
+        .save-slot-info {
+            color: rgba(255,255,255,0.6);
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        .close-panel {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        #notification {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(50,100,150,0.9);
+            padding: 15px 30px;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 16px;
+            z-index: 300;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        #notification.show {
+            opacity: 1;
+        }
+
+        .fade-transition {
+            animation: fadeIn 0.8s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        #history-panel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(20,20,40,0.98);
+            border: 2px solid rgba(100,150,255,0.5);
+            border-radius: 15px;
+            padding: 30px;
+            z-index: 250;
+            width: 80%;
+            max-width: 800px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        #history-panel.hidden {
+            display: none;
+        }
+
+        .history-item {
+            padding: 10px;
+            margin: 5px 0;
+            border-bottom: 1px solid rgba(100,150,255,0.2);
+        }
+
+        .history-name {
+            color: #6b8cce;
+            font-weight: bold;
+        }
+
+        .history-text {
+            color: #e8e8f0;
+            margin-top: 5px;
+        }
+
+        #auto-play-indicator {
+            position: absolute;
+            bottom: 210px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255,255,255,0.7);
+            font-size: 14px;
+            z-index: 100;
+        }
+
+        .scene-effect {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 50;
+            pointer-events: none;
+        }
+
+        #particles-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .particle {
+            position: absolute;
+            background: rgba(255,255,255,0.8);
+            border-radius: 50%;
+            animation: fall linear infinite;
+        }
+
+        @keyframes fall {
+            to {
+                transform: translateY(100vh) rotate(360deg);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="background"></div>
+        <div id="particles-container"></div>
+        <div id="characters-layer"></div>
+        
+        <div id="dialogue-box">
+            <div id="character-name"></div>
+            <div id="dialogue-text"></div>
+            <div id="click-indicator">▼ 点击继续</div>
+        </div>
+
+        <div id="choices-container"></div>
+
+        <div id="ui-buttons">
+            <button class="ui-btn" onclick="toggleAutoPlay()">自动</button>
+            <button class="ui-btn" onclick="showHistory()">历史</button>
+            <button class="ui-btn" onclick="showSavePanel()">存档</button>
+            <button class="ui-btn" onclick="showLoadPanel()">读档</button>
+            <button class="ui-btn" onclick="toggleMenu()">菜单</button>
+        </div>
+
+        <div id="auto-play-indicator"></div>
+
+        <div id="menu-overlay">
+            <h1 id="game-title">星空物语</h1>
+            <button class="menu-btn" onclick="startGame()">开始游戏</button>
+            <button class="menu-btn" onclick="showLoadPanel()">读取存档</button>
+            <button class="menu-btn" onclick="showSettings()">设置</button>
+        </div>
+
+        <div id="save-load-panel" class="hidden">
+            <button class="close-panel" onclick="closePanel()">×</button>
+            <h2 class="panel-title" id="panel-title">存档</h2>
+            <div id="save-slots"></div>
+        </div>
+
+        <div id="history-panel" class="hidden">
+            <button class="close-panel" onclick="closeHistory()">×</button>
+            <h2 class="panel-title">对话历史</h2>
+            <div id="history-list"></div>
+        </div>
+
+        <div id="notification"></div>
+    </div>
+
+    <script>
+        const GameState = {
+            currentScene: 0,
+            currentDialogue: 0,
+            isTyping: false,
+            isAutoPlay: false,
+            autoPlaySpeed: 3000,
+            dialogueHistory: [],
+            characters: {},
+            flags: {},
+            settings: {
+                textSpeed: 50,
+                autoPlaySpeed: 3000,
+                bgmVolume: 0.5,
+                sfxVolume: 0.7
+            }
+        };
+
+        const storyData = {
+            characters: {
+                'yuki': {
+                    name: '雪',
+                    image: 'https://picsum.photos/seed/yuki/400/800',
+                    position: 'left'
+                },
+                'haru': {
+                    name: '春',
+                    image: 'https://picsum.photos/seed/haru/400/800',
+                    position: 'right'
+                },
+                'narrator': {
+                    name: '',
+                    image: null
+                }
+            },
+            backgrounds: {
+                'classroom': 'https://picsum.photos/seed/classroom/1920/1080',
+                'rooftop': 'https://picsum.photos/seed/rooftop/1920/1080',
+                'sunset': 'https://picsum.photos/seed/sunset/1920/1080',
+                'night': 'https://picsum.photos/seed/night/1920/1080',
+                'sakura': 'https://picsum.photos/seed/sakura/1920/1080',
+                'station': 'https://picsum.photos/seed/station/1920/1080'
+            },
+            scenes: [
+                {
+                    background: 'sakura',
+                    dialogues: [
+                        {
+                            character: 'narrator',
+                            text: '春天，樱花盛开的季节。\n新学期的第一天，空气中弥漫着淡淡的花香。',
+                            effect: 'fadeIn'
+                        },
+                        {
+                            character: 'narrator',
+                            text: '我站在校门口，看着飘落的樱花瓣，\n心中不禁感叹时光飞逝。'
+                        },
+                        {
+                            character: 'yuki',
+                            text: '早上好！',
+                            position: 'center',
+                            enter: 'left'
+                        },
+                        {
+                            character: 'yuki',
+                            text: '你也在这里欣赏樱花吗？\n今年的樱花开得真美呢。',
+                            emotion: 'happy'
+                        },
+                        {
+                            character: 'narrator',
+                            text: '一个银发少女突然出现在我面前，\n她的眼眸如同清澈的湖水。'
+                        },
+                        {
+                            character: 'yuki',
+                            text: '啊，我还没自我介绍呢！\n我叫雪，今年刚转学过来。',
+                            emotion: 'smile'
+                        },
+                        {
+                            character: 'yuki',
+                            text: '你...愿意做我的朋友吗？',
+                            emotion: 'shy'
+                        },
+                        {
+                            type: 'choice',
+                            choices: [
+                                { text: '当然可以，很高兴认识你！', next: 'friendly' },
+                                { text: '嗯...让我想想...', next: 'hesitant' }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: 'friendly',
+                    background: 'classroom',
+                    dialogues: [
+                        {
+                            character: 'yuki',
+                            text: '太好了！\n我就知道你是个好人！',
+                            emotion: 'happy',
+                            position: 'left'
+                        },
+                        {
+                            character: 'narrator',
+                            text: '她露出了灿烂的笑容，\n仿佛整个世界都明亮了起来。'
+                        },
+                        {
+                            character: 'yuki',
+                            text: '那我们一起去教室吧！\n听说我们可能是同班同学呢。'
+                        },
+                        {
+                            character: 'haru',
+                            text: '哟，一大早就这么热闹啊？',
+                            position: 'right',
+                            enter: 'right'
+                        },
+                        {
+                            character: 'narrator',
+                            text: '另一个声音从身后传来，\n我回头看到一个阳光帅气的男生。'
+                        },
+                        {
+                            character: 'haru',
+                            text: '我是春，是雪的青梅竹马。\n你也是新认识的朋友吗？'
+                        },
+                        {
+                            character: 'yuki',
+                            text: '春！你总是这样突然出现！',
+                            emotion: 'embarrassed'
+                        },
+                        {
+                            character: 'haru',
+                            text: '哈哈，抱歉抱歉。\n不过看到雪交到新朋友，我也很开心。'
+                        },
+                        {
+                            type: 'choice',
+                            choices: [
+                                { text: '请多关照，春同学', next: 'polite' },
+                                { text: '你们关系真好呢', next: 'curious' }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: 'hesitant',
+                    background: 'sakura',
+                    dialogues: [
+                        {
+                            character: 'yuki',
+                            text: '欸...？',
+                            emotion: 'surprised'
+                        },
+                        {
+                            character: 'narrator',
+                            text: '她的表情略显失落，\n但很快又恢复了微笑。'
+                        },
+                        {
+                            character: 'yuki',
+                            text: '没关系的，我理解。\n转学生确实会让人觉得陌生...',
+                            emotion: 'sad'
+                        },
+                        {
+                            character: 'narrator',
+                            text: '她转身准备离开，\n但脚步似乎有些犹豫。'
+                        },
+                        {
+                            type: 'choice',
+                            choices: [
+                                { text: '等等，我开玩笑的！', next: 'friendly' },
+                                { text: '（目送她离开）', next: 'lonely' }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: 'polite',
+                    background: 'rooftop',
+                    dialogues: [
+                        {
+                            character: 'haru',
+                            text: '哈哈，你真有礼貌！\n以后我们就是朋友了！'
+                        },
+                        {
+                            character: 'yuki',
+                            text: '春，不要擅自决定啦...',
+                            emotion: 'embarrassed',
+                            position: 'left'
+                        },
+                        {
+                            character: 'narrator',
+                            text: '午休时间，我们来到了天台。\n阳光洒在身上，温暖而惬意。'
+                        },
+                        {
+                            character: 'yuki',
+                            text: '你知道吗，我很期待新的学校生活。\n能遇到你们真是太好了。'
+                        },
+                        {
+                            character: 'haru',
+                            text: '对了，放学后要不要一起去买东西？\n我想给雪买些新学期需要的东西。'
+                        },
+                        {
+                            type: 'choice',
+                            choices: [
+                                { text: '我也一起去吧', next: 'ending_good' },
+                                { text: '你们去吧，我还有事', next: 'ending_normal' }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: 'curious',
+                    background: 'sunset',
+                    dialogues: [
+                        {
+                            character: 'yuki',
+                            text: '青梅竹马什么的...只是从小认识而已啦！',
+                            emotion: 'embarrassed'
+                        },
+                        {
+                            character: 'haru',
+                            text: '哦？雪在害羞吗？\n这可很少见呢。'
+                        },
+                        {
+                            character: 'yuki',
+                            text: '才、才没有！',
+                            emotion: 'flustered'
+                        },
+                        {
+                            character: 'narrator',
+                            text: '看着他们打闹的样子，\n我感到一种温馨的氛围。'
+                        },
+                        {
+                            character: 'haru',
+                            text: '说起来，放学后要不要一起去看看夕阳？\n学校后面的山坡风景很棒哦。'
+                        },
+                        {
+                            type: 'choice',
+                            choices: [
+                                { text: '好啊，我很期待', next: 'ending_good' },
+                                { text: '下次吧', next: 'ending_normal' }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: 'lonely',
+                    background: 'night',
+                    dialogues: [
+                        {
+                            character: 'narrator',
+                            text: '我看着她远去的背影，\n心中涌起一丝复杂的情绪。'
+                        },
+                        {
+                            character: 'narrator',
+                            text: '或许，我应该更坦诚一些...'
+                        },
+                        {
+                            character: 'narrator',
+                            text: '新学期的第一天就这样结束了。\n明天，或许会有新的相遇等待着我。'
+                        },
+                        {
+                            type: 'ending',
+                            text: '【普通结局 - 孤独的开始】\n感谢游玩！'
+                        }
+                    ]
+                },
+                {
+                    id: 'ending_good',
+                    background: 'sunset',
+                    dialogues: [
+                        {
+                            character: 'yuki',
+                            text: '真的吗？太好了！',
+                            emotion: 'happy'
+                        },
+                        {
+                            character: 'haru',
+                            text: '那就这么定了！\n放学后校门口见！'
+                        },
+                        {
+                            character: 'narrator',
+                            text: '夕阳西下，金色的光芒洒满校园。\n新学期，新的友谊，新的故事即将展开。'
+                        },
+                        {
+                            character: 'yuki',
+                            text: '谢谢你愿意成为我的朋友。\n以后，请多关照了！',
+                            emotion: 'smile'
+                        },
+                        {
+                            character: 'narrator',
+                            text: '她微笑着伸出手，\n我也握住了她的手。'
+                        },
+                        {
+                            character: 'narrator',
+                            text: '这一刻，我知道——\n这个春天，将会是特别的。'
+                        },
+                        {
+                            type: 'ending',
+                            text: '【好结局 - 樱花之约】\n感谢游玩！'
+                        }
+                    ]
+                },
+                {
+                    id: 'ending_normal',
+                    background: 'night',
+                    dialogues: [
+                        {
+                            character: 'yuki',
+                            text: '这样啊...那下次有机会再一起吧！',
+                            emotion: 'smile'
+                        },
+                        {
+                            character: 'haru',
+                            text: '嗯，那我们先走了。\n明天见！'
+                        },
+                        {
+                            character: 'narrator',
+                            text: '看着他们离去的背影，\n我独自走在回家的路上。'
+                        },
+                        {
+                            character: 'narrator',
+                            text: '夜空中，星星闪烁。\n明天，又是新的一天。'
+                        },
+                        {
+                            type: 'ending',
+                            text: '【普通结局 - 星空之下】\n感谢游玩！'
+                        }
+                    ]
+                }
+            ]
+        };
+
+        let typingTimeout = null;
+        let autoPlayTimeout = null;
+
+        function init() {
+            loadSettings();
+            createParticles();
+        }
+
+        function createParticles() {
+            const container = document.getElementById('particles-container');
+            for (let i = 0; i < 30; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.width = Math.random() * 4 + 2 + 'px';
+                particle.style.height = particle.style.width;
+                particle.style.animationDuration = Math.random() * 5 + 5 + 's';
+                particle.style.animationDelay = Math.random() * 5 + 's';
+                particle.style.opacity = Math.random() * 0.5 + 0.3;
+                container.appendChild(particle);
+            }
+        }
+
+        function startGame() {
+            document.getElementById('menu-overlay').classList.add('hidden');
+            GameState.currentScene = 0;
+            GameState.currentDialogue = 0;
+            GameState.dialogueHistory = [];
+            GameState.flags = {};
+            GameState.characters = {};
+            clearCharacters();
+            playScene();
+        }
+
+        function toggleMenu() {
+            const menu = document.getElementById('menu-overlay');
+            const title = document.getElementById('game-title');
+            title.textContent = '暂停';
+            menu.querySelector('.menu-btn:first-of-type').textContent = '继续游戏';
+            menu.classList.remove('hidden');
+        }
+
+        function playScene() {
+            const scene = storyData.scenes[GameState.currentScene];
+            if (!scene) {
+                showNotification('游戏结束！');
+                return;
+            }
+
+            if (scene.background) {
+                setBackground(scene.background);
+            }
+
+            playDialogue();
+        }
+
+        function playDialogue() {
+            const scene = storyData.scenes[GameState.currentScene];
+            const dialogue = scene.dialogues[GameState.currentDialogue];
+
+            if (!dialogue) {
+                GameState.currentScene++;
+                GameState.currentDialogue = 0;
+                playScene();
+                return;
+            }
+
+            if (dialogue.type === 'choice') {
+                showChoices(dialogue.choices);
+                return;
+            }
+
+            if (dialogue.type === 'ending') {
+                showEnding(dialogue.text);
+                return;
+            }
+
+            const character = storyData.characters[dialogue.character];
+            
+            if (character.image) {
+                showCharacter(dialogue.character, dialogue);
+            }
+
+            document.getElementById('character-name').textContent = character.name;
+            
+            typeText(dialogue.text);
+
+            if (character.name) {
+                GameState.dialogueHistory.push({
+                    name: character.name,
+                    text: dialogue.text
+                });
+            }
+
+            highlightSpeakingCharacter(dialogue.character);
+        }
+
+        function typeText(text) {
+            GameState.isTyping = true;
+            const textElement = document.getElementById('dialogue-text');
+            textElement.innerHTML = '';
+            
+            let index = 0;
+            const speed = GameState.settings.textSpeed;
+
+            function type() {
+                if (index < text.length) {
+                    const char = text.charAt(index);
+                    if (char === '\n') {
+                        textElement.innerHTML += '<br>';
+                    } else {
+                        textElement.innerHTML += char;
+                    }
+                    index++;
+                    typingTimeout = setTimeout(type, speed);
+                } else {
+                    GameState.isTyping = false;
+                    textElement.innerHTML += '<span class="typing-cursor"></span>';
+                    
+                    if (GameState.isAutoPlay) {
+                        autoPlayTimeout = setTimeout(nextDialogue, GameState.autoPlaySpeed);
+                    }
+                }
+            }
+
+            type();
+        }
+
+        function skipTyping() {
+            if (GameState.isTyping) {
+                clearTimeout(typingTimeout);
+                const scene = storyData.scenes[GameState.currentScene];
+                const dialogue = scene.dialogues[GameState.currentDialogue];
+                document.getElementById('dialogue-text').innerHTML = dialogue.text.replace(/\n/g, '<br>') + '<span class="typing-cursor"></span>';
+                GameState.isTyping = false;
+                
+                if (GameState.isAutoPlay) {
+                    autoPlayTimeout = setTimeout(nextDialogue, GameState.autoPlaySpeed);
+                }
+                return true;
+            }
+            return false;
+        }
+
+        function nextDialogue() {
+            if (GameState.isTyping) {
+                skipTyping();
+                return;
+            }
+
+            GameState.currentDialogue++;
+            playDialogue();
+        }
+
+        function setBackground(bgKey) {
+            const bg = storyData.backgrounds[bgKey];
+            const bgElement = document.getElementById('background');
+            bgElement.style.opacity = '0';
+            
+            setTimeout(() => {
+                bgElement.style.backgroundImage = `url('${bg}')`;
+                bgElement.style.opacity = '1';
+            }, 400);
+        }
+
+        function showCharacter(charKey, dialogue) {
+            const charData = storyData.characters[charKey];
+            const container = document.getElementById('characters-layer');
+            
+            let charElement = document.getElementById('char-' + charKey);
+            
+            if (!charElement) {
+                charElement = document.createElement('img');
+                charElement.id = 'char-' + charKey;
+                charElement.className = 'character';
+                charElement.src = charData.image;
+                container.appendChild(charElement);
+            }
+
+            const position = dialogue.position || charData.position;
+            charElement.className = 'character ' + position;
+
+            if (dialogue.enter) {
+                charElement.classList.add('enter-' + dialogue.enter);
+            }
+
+            charElement.style.display = 'block';
+        }
+
+        function highlightSpeakingCharacter(charKey) {
+            const characters = document.querySelectorAll('.character');
+            characters.forEach(char => {
+                if (char.id === 'char-' + charKey) {
+                    char.classList.add('speaking');
+                    char.classList.remove('dim');
+                } else {
+                    char.classList.remove('speaking');
+                    char.classList.add('dim');
+                }
+            });
+        }
+
+        function clearCharacters() {
+            document.getElementById('characters-layer').innerHTML = '';
+        }
+
+        function showChoices(choices) {
+            const container = document.getElementById('choices-container');
+            container.innerHTML = '';
+
+            choices.forEach((choice, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'choice-btn';
+                btn.textContent = choice.text;
+                btn.onclick = () => selectChoice(choice);
+                container.appendChild(btn);
+            });
+        }
+
+        function selectChoice(choice) {
+            document.getElementById('choices-container').innerHTML = '';
+            
+            const targetScene = storyData.scenes.find(s => s.id === choice.next);
+            if (targetScene) {
+                GameState.currentScene = storyData.scenes.indexOf(targetScene);
+                GameState.currentDialogue = 0;
+                clearCharacters();
+                playScene();
+            }
+        }
+
+        function showEnding(text) {
+            const container = document.getElementById('choices-container');
+            container.innerHTML = `
+                <div style="text-align: center; color: #fff; font-size: 24px; padding: 40px;">
+                    ${text.replace(/\n/g, '<br>')}
+                    <br><br>
+                    <button class="menu-btn" onclick="location.reload()">返回标题</button>
+                </div>
+            `;
+        }
+
+        function toggleAutoPlay() {
+            GameState.isAutoPlay = !GameState.isAutoPlay;
+            const indicator = document.getElementById('auto-play-indicator');
+            
+            if (GameState.isAutoPlay) {
+                indicator.textContent = '自动播放中...';
+                if (!GameState.isTyping) {
+                    autoPlayTimeout = setTimeout(nextDialogue, GameState.autoPlaySpeed);
+                }
+            } else {
+                indicator.textContent = '';
+                clearTimeout(autoPlayTimeout);
+            }
+            
+            showNotification(GameState.isAutoPlay ? '自动播放：开' : '自动播放：关');
+        }
+
+        function showHistory() {
+            const panel = document.getElementById('history-panel');
+            const list = document.getElementById('history-list');
+            
+            list.innerHTML = GameState.dialogueHistory.map(item => `
+                <div class="history-item">
+                    <div class="history-name">${item.name}</div>
+                    <div class="history-text">${item.text.replace(/\n/g, '<br>')}</div>
+                </div>
+            `).join('');
+            
+            panel.classList.remove('hidden');
+        }
+
+        function closeHistory() {
+            document.getElementById('history-panel').classList.add('hidden');
+        }
+
+        function showSavePanel() {
+            const panel = document.getElementById('save-load-panel');
+            document.getElementById('panel-title').textContent = '存档';
+            renderSaveSlots('save');
+            panel.classList.remove('hidden');
+        }
+
+        function showLoadPanel() {
+            const panel = document.getElementById('save-load-panel');
+            document.getElementById('panel-title').textContent = '读档';
+            renderSaveSlots('load');
+            panel.classList.remove('hidden');
+        }
+
+        function renderSaveSlots(mode) {
+            const container = document.getElementById('save-slots');
+            container.innerHTML = '';
+            
+            for (let i = 1; i <= 5; i++) {
+                const saveData = localStorage.getItem('galgame_save_' + i);
+                const slot = document.createElement('div');
+                slot.className = 'save-slot';
+                
+                if (saveData) {
+                    const data = JSON.parse(saveData);
+                    slot.innerHTML = `
+                        <div class="save-slot-title">存档 ${i}</div>
+                        <div class="save-slot-info">场景: ${data.scene} | ${data.date}</div>
+                    `;
+                } else {
+                    slot.innerHTML = `
+                        <div class="save-slot-title">存档 ${i}</div>
+                        <div class="save-slot-info">空</div>
+                    `;
+                }
+                
+                slot.onclick = () => {
+                    if (mode === 'save') {
+                        saveGame(i);
+                    } else {
+                        loadGame(i);
+                    }
+                };
+                
+                container.appendChild(slot);
+            }
+        }
+
+        function saveGame(slot) {
+            const saveData = {
+                scene: GameState.currentScene,
+                dialogue: GameState.currentDialogue,
+                flags: GameState.flags,
+                history: GameState.dialogueHistory,
+                date: new Date().toLocaleString()
+            };
+            
+            localStorage.setItem('galgame_save_' + slot, JSON.stringify(saveData));
+            showNotification('存档成功！');
+            closePanel();
+        }
+
+        function loadGame(slot) {
+            const saveData = localStorage.getItem('galgame_save_' + slot);
+            
+            if (saveData) {
+                const data = JSON.parse(saveData);
+                GameState.currentScene = data.scene;
+                GameState.currentDialogue = data.dialogue;
+                GameState.flags = data.flags || {};
+                GameState.dialogueHistory = data.history || [];
+                
+                document.getElementById('menu-overlay').classList.add('hidden');
+                closePanel();
+                clearCharacters();
+                playScene();
+                showNotification('读档成功！');
+            } else {
+                showNotification('存档为空！');
+            }
+        }
+
+        function closePanel() {
+            document.getElementById('save-load-panel').classList.add('hidden');
+        }
+
+        function showNotification(text) {
+            const notification = document.getElementById('notification');
+            notification.textContent = text;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 2000);
+        }
+
+        function showSettings() {
+            showNotification('设置功能开发中...');
+        }
+
+        function loadSettings() {
+            const settings = localStorage.getItem('galgame_settings');
+            if (settings) {
+                GameState.settings = JSON.parse(settings);
+            }
+        }
+
+        document.getElementById('game-container').addEventListener('click', (e) => {
+            if (e.target.closest('.ui-btn') || 
+                e.target.closest('.choice-btn') || 
+                e.target.closest('.menu-btn') ||
+                e.target.closest('#save-load-panel') ||
+                e.target.closest('#history-panel') ||
+                e.target.closest('#menu-overlay')) {
+                return;
+            }
+            
+            if (!document.getElementById('menu-overlay').classList.contains('hidden')) {
+                return;
+            }
+            
+            if (!document.getElementById('save-load-panel').classList.contains('hidden')) {
+                return;
+            }
+            
+            if (!document.getElementById('history-panel').classList.contains('hidden')) {
+                return;
+            }
+            
+            nextDialogue();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'Enter') {
+                e.preventDefault();
+                nextDialogue();
+            }
+            
+            if (e.code === 'Escape') {
+                if (!document.getElementById('menu-overlay').classList.contains('hidden')) {
+                    document.getElementById('menu-overlay').classList.add('hidden');
+                } else {
+                    toggleMenu();
+                }
+            }
+        });
+
+        init();
+    </script>
+</body>
+</html>
