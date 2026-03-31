@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 角色对话系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 900px;
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .character-select {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .character-btn {
+            padding: 8px 16px;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .character-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .character-btn.active {
+            background: white;
+            color: #667eea;
+            border-color: white;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 12px 18px;
+            border-radius: 18px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            align-self: flex-end;
+            background: #667eea;
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+
+        .message.assistant {
+            align-self: flex-start;
+            background: #f0f0f0;
+            color: #333;
+            border-bottom-left-radius: 5px;
+        }
+
+        .input-container {
+            padding: 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-container input {
+            flex: 1;
+            padding: 12px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .input-container input:focus {
+            border-color: #667eea;
+        }
+
+        .input-container button {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+
+        .input-container button:hover {
+            transform: scale(1.05);
+        }
+
+        .input-container button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 10px;
+            color: #999;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .welcome-message {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+        }
+
+        .welcome-message h2 {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+
+        .welcome-message p {
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>AI 角色对话系统</h1>
+            <div class="character-select" id="characterSelect">
+                <button class="character-btn" data-id="tsundere_senpai">傲娇学姐</button>
+                <button class="character-btn" data-id="gentle_teacher">温柔老师</button>
+                <button class="character-btn" data-id="energetic_friend">元气朋友</button>
+            </div>
+        </div>
+
+        <div class="chat-container" id="chatContainer">
+            <div class="welcome-message">
+                <h2>选择一个角色开始对话</h2>
+                <p>点击上方的角色按钮选择你想要对话的角色</p>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            正在思考中...
+        </div>
+
+        <div class="input-container">
+            <input type="text" id="messageInput" placeholder="输入消息..." disabled>
+            <button id="sendBtn" disabled>发送</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+        let currentSessionId = null;
+        let currentCharacterId = null;
+
+        const characterSelect = document.getElementById('characterSelect');
+        const chatContainer = document.getElementById('chatContainer');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const loading = document.getElementById('loading');
+
+        characterSelect.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('character-btn')) {
+                const characterId = e.target.dataset.id;
+                await selectCharacter(characterId);
+            }
+        });
+
+        async function selectCharacter(characterId) {
+            document.querySelectorAll('.character-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.id === characterId) {
+                    btn.classList.add('active');
+                }
+            });
+
+            currentCharacterId = characterId;
+
+            try {
+                const response = await fetch(`${API_BASE}/sessions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ character_id: characterId })
+                });
+
+                const data = await response.json();
+                currentSessionId = data.session_id;
+
+                messageInput.disabled = false;
+                sendBtn.disabled = false;
+
+                chatContainer.innerHTML = '';
+                addMessage('assistant', '你好！很高兴见到你，有什么我可以帮助你的吗？');
+            } catch (error) {
+                console.error('Error creating session:', error);
+                alert('创建会话失败，请检查服务器是否运行');
+            }
+        }
+
+        function addMessage(role, content) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            messageDiv.textContent = content;
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        sendBtn.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message || !currentSessionId) return;
+
+            messageInput.value = '';
+            sendBtn.disabled = true;
+            messageInput.disabled = true;
+            loading.classList.add('active');
+
+            addMessage('user', message);
+
+            try {
+                const response = await fetch(`${API_BASE}/sessions/${currentSessionId}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    addMessage('assistant', `错误: ${data.error}`);
+                } else {
+                    addMessage('assistant', data.message);
+                }
+            } catch (error) {
+                console.error('Error sending message:', error);
+                addMessage('assistant', '发送消息失败，请检查网络连接');
+            } finally {
+                loading.classList.remove('active');
+                sendBtn.disabled = false;
+                messageInput.disabled = false;
+                messageInput.focus();
+            }
+        }
+    </script>
+</body>
+</html>
